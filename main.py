@@ -1,7 +1,8 @@
-# 
-
 import pygame
 import math
+from PIL import Image, ImageOps
+from pathlib import Path
+from pillow_heif import register_heif_opener
 
 class Sprite():
 	def __init__(self, spritesheet, colour_key, screen_centre, crop_rect):
@@ -23,7 +24,14 @@ class Sprite():
 		self.sprite = self.sprite_original
 
 class App:
-	def __init__(self):
+	def __init__(self, photos):
+		# Game assumes the given photos is sorted by date taken.
+		self.photos = photos # List[Path]
+
+		# TODO: How to load photos[i] as an image for use in pygame? 
+		# e.g., How to get name of file tied to Path? (e.g. "2024/07/13 14/18/02.jpg")
+		# so that can call pygame.image.load("2024/07/13 14/18/02.jpg")
+
 		# Initiate the pygame module and create the main display.
 		pygame.init()
 		screen_width, screen_height = 640, 1000
@@ -65,14 +73,12 @@ class App:
 		if event.type == pygame.QUIT:
 			# User wants to quit
 			self.running = False
-		if event.type == pygame.MOUSEBUTTONDOWN:
+		elif event.type == pygame.MOUSEBUTTONDOWN:
 			# User wants to draw
 			self.drawing = True
-			pass
-		if event.type == pygame.MOUSEBUTTONUP:
+		elif event.type == pygame.MOUSEBUTTONUP:
 			# User wants to stop drawing
 			self.drawing = False
-			pass
 
 	def loop(self):
 		# Clear the screen
@@ -95,9 +101,55 @@ class App:
 		self.screen.blit(self.minute_hand.sprite, self.minute_hand.sprite.get_rect(center = self.minute_hand.screen_centre))
 
 		# TODO: Blit the photo onto top half of screen
+		# Let's do this!!
 
 		# Double buffering.
 		pygame.display.flip()
 
+def rename_photo_date_taken(photo):
+	try:
+		with Image.open(photo) as img:
+			# Resize image, and rename it to its EXIF timestamp, so that the
+			# output ./photos folder is alphabetically sorted by date taken.
+			img_exif = img.getexif()
+			if img_exif is None or 306 not in img_exif:
+				raise ValueError(f"{photo} does not have EXIF timestamp")
+			size = (600, 600)
+			ImageOps.pad(img, size, color="#ffffff").save(
+				f"./photos/{img_exif[306]}.jpg", # img_exif[306] is DateTime
+				exif = img_exif, 
+				format = "JPEG"
+			)
+	except Exception as error:
+		print(f"Error: {error}")
+	finally:
+		# Remove original photo.
+		photo.unlink()
+
+def show_photo(photo):
+	try:
+		with Image.open(photo) as img:
+			img.show()
+	except Exception as error:
+		print(f"Error: {error}")
+
 if __name__ == "__main__":
-	app = App()
+	# For reading HEIC files.
+	register_heif_opener()
+
+	# Rename all photos to be their EXIF date taken timestamp.
+	originals = Path("./originals").glob("*")
+	for original in originals:
+		rename_photo_date_taken(original)
+	# Path("./originals").rmdir()
+
+	# So that sorting by name is sorting by date taken.
+	photos = list(Path("./photos").glob("*"))
+	photos.sort()
+
+	# # This is proof!
+	# for photo in photos:
+	# 	show_photo(photo)
+
+	# Run game with this set of photos.
+	App(photos)
