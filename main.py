@@ -25,17 +25,12 @@ class Sprite():
 
 class App:
 	def __init__(self, photos):
-		# Game assumes the given photos is sorted by date taken.
-		self.photos = photos # List[Path]
-
-		# TODO: How to load photos[i] as an image for use in pygame? 
-		# e.g., How to get name of file tied to Path? (e.g. "2024/07/13 14/18/02.jpg")
-		# so that can call pygame.image.load("2024/07/13 14/18/02.jpg")
+		self.ii = 0
 
 		# Initiate the pygame module and create the main display.
 		pygame.init()
-		screen_width, screen_height = 640, 1000
-		self.screen = pygame.display.set_mode((screen_width, screen_height))
+		self.screen_width, self.screen_height = 640, 1000
+		self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
 
 		# Load the main spritesheet, which has an opaque background of white.
 		spritesheet = pygame.image.load("spritesheet.png").convert()
@@ -43,11 +38,16 @@ class App:
 
 		# Load the main sprites.
 		self.minute_hand = Sprite(
-			spritesheet = spritesheet, 
-			colour_key =  spritesheet_colour_key,
-			screen_centre = (screen_width * 0.50, screen_height * 0.75), 
-			crop_rect = pygame.Rect(0, 124, 256, 8)
+			spritesheet=spritesheet, 
+			colour_key= spritesheet_colour_key,
+			screen_centre=(self.screen_width * 0.50, self.screen_height * 0.8), 
+			crop_rect=pygame.Rect(0, 124, 256, 8)
 		)
+
+		print(len(photos))
+
+		# Load all photos
+		self.photos = [pygame.image.load(f"{photos[idx].parent}/{photos[idx].name}").convert() for idx in range(0, len(photos))]
 
 		# Other colours needed for the game.
 		self.colour_bg = (150, 150, 150)
@@ -66,7 +66,7 @@ class App:
 			for event in pygame.event.get():
 				self.event(event)
 			self.loop()
-			fps.tick(60)
+			fps.tick(10)
 		pygame.quit()
 
 	def event(self, event):
@@ -98,22 +98,25 @@ class App:
 			self.minute_hand.sprite = pygame.transform.rotate(self.minute_hand.sprite_original, angle).convert_alpha()
 
 		# Render the minute_hand sprite.
-		self.screen.blit(self.minute_hand.sprite, self.minute_hand.sprite.get_rect(center = self.minute_hand.screen_centre))
+		self.screen.blit(self.minute_hand.sprite, self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre))
 
-		# TODO: Blit the photo onto top half of screen
-		# Let's do this!!
+		# Hack: Blit the pygame image self.photos[i]
+		# TODO: self.ii is dependent on how many turns user has made of the clock hand.
+		self.ii += 1
+		self.screen.blit(self.photos[self.ii], self.photos[self.ii].get_rect(center=(self.screen_width * 0.50, self.screen_height * 0.33)))
 
 		# Double buffering.
 		pygame.display.flip()
 
-def rename_photo_date_taken(photo):
+def rename_photo_date_taken(original):
 	try:
-		with Image.open(photo) as img:
-			# Resize image, and rename it to its EXIF timestamp, so that the
-			# output ./photos folder is alphabetically sorted by date taken.
+		with Image.open(original) as img:
+			# Resize original image and place it into ./photos, renaming it to its 
+			# EXIF timestamp, so that the output ./photos folder is alphabetically 
+			# sorted by date taken.
 			img_exif = img.getexif()
 			if img_exif is None or 306 not in img_exif:
-				raise ValueError(f"{photo} does not have EXIF timestamp")
+				raise ValueError(f"{original} does not have EXIF timestamp")
 			size = (600, 600)
 			ImageOps.pad(img, size, color="#ffffff").save(
 				f"./photos/{img_exif[306]}.jpg", # img_exif[306] is DateTime
@@ -121,10 +124,9 @@ def rename_photo_date_taken(photo):
 				format = "JPEG"
 			)
 	except Exception as error:
+		# Remove original with error
 		print(f"Error: {error}")
-	finally:
-		# Remove original photo.
-		photo.unlink()
+		original.unlink()
 
 def show_photo(photo):
 	try:
@@ -137,13 +139,18 @@ if __name__ == "__main__":
 	# For reading HEIC files.
 	register_heif_opener()
 
-	# Rename all photos to be their EXIF date taken timestamp.
+	# First, clear existing ./photos folder.
+	photos = Path("./photos").glob("*")
+	for photo in photos:
+		photo.unlink()
+
+	# Rename all ./originals to be their EXIF date taken 
+	# timestamp, placing into the cleared ./photos.
 	originals = Path("./originals").glob("*")
 	for original in originals:
 		rename_photo_date_taken(original)
-	# Path("./originals").rmdir()
 
-	# So that sorting by name is sorting by date taken.
+	# So that sorting ./photos by name is sorting photos by date taken.
 	photos = list(Path("./photos").glob("*"))
 	photos.sort()
 
