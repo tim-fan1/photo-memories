@@ -25,10 +25,14 @@ class Sprite():
 		# Transformations on the sprite will replace this, not the original.
 		self.sprite = self.sprite_original
 
+		# Rotation about self.screen_centre.
+		self.curr_angle = 0
+
 class App:
 	def __init__(self, photos):
 		# TODO: A reminder that this is a bad name for index and yeah...
 		self.ii = 0
+		self.mouse_prev_angle = 0
 
 		# Initiate the pygame module and create the main display.
 		pygame.init()
@@ -46,8 +50,6 @@ class App:
 			screen_centre=(self.screen_width * 0.50, self.screen_height * 0.8), 
 			crop_rect=pygame.Rect(0, 124, 256, 8)
 		)
-
-		print(len(photos))
 
 		# Load all photos
 		self.photos = [pygame.image.load(f"{photos[idx].parent}/{photos[idx].name}").convert() for idx in range(0, len(photos))]
@@ -69,7 +71,7 @@ class App:
 			for event in pygame.event.get():
 				self.event(event)
 			self.loop()
-			fps.tick(10)
+			fps.tick(60)
 		pygame.quit()
 
 	def event(self, event):
@@ -91,21 +93,34 @@ class App:
 		pygame.draw.circle(self.screen, self.colour_main, self.minute_hand.screen_centre, 150, self.line_width)
 		pygame.draw.circle(self.screen, self.colour_main, self.minute_hand.screen_centre, self.line_width, self.line_width)
 
-		# Update the minute_hand sprite's rotation based on mouse position.
-		if self.drawing:
-			pos = pygame.mouse.get_pos()
-			x = pos[0] - self.minute_hand.screen_centre[0]
-			y = -(pos[1] - self.minute_hand.screen_centre[1])
-			angle = math.degrees(math.atan2(y, x))
+		# Graphics coordinates have (0,0) at the top-left corner, but 
+		# Cartesian coordinates have (0,0) at the bottom-left corner, is
+		# how I would explain the times by negative one here.
+		pos = pygame.mouse.get_pos()
+		x = pos[0] - self.minute_hand.screen_centre[0]
+		y = pos[1] - self.minute_hand.screen_centre[1]
+		mouse_curr_angle = (-1) * math.degrees(math.atan2(y, x))
 
-			self.minute_hand.sprite = pygame.transform.rotate(self.minute_hand.sprite_original, angle).convert_alpha()
+		# While pygame.transform.rotate moves counterclockwise in angle,
+		# clocks move clockwise in time. So moving the clock forward in time
+		# is actually moving its angular displacement backward in angle.
+		if self.drawing: self.minute_hand.curr_angle -= (self.mouse_prev_angle - mouse_curr_angle)
 
-		# Render the minute_hand sprite.
+		# Update for next frame.
+		self.mouse_prev_angle = mouse_curr_angle
+
+		# Update the mutable sprite and not the immutable original sprite.
+		self.minute_hand.sprite = pygame.transform.rotate(self.minute_hand.sprite_original, self.minute_hand.curr_angle).convert_alpha()
+
+		# Blit the updated minute_hand sprite onto screen.
 		self.screen.blit(self.minute_hand.sprite, self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre))
 
 		# Hack: Blit the pygame image self.photos[i]
 		# TODO: self.ii is dependent on how many turns user has made of the clock hand.
-		self.ii += 1
+		#
+		# Negative one is again because the index into self.photos is how forward
+		# in time the clock is, which is how backward in angle the hand is.
+		self.ii = int((-1) * self.minute_hand.curr_angle / 360 * len(self.photos))
 		self.screen.blit(self.photos[self.ii], self.photos[self.ii].get_rect(center=(self.screen_width * 0.50, self.screen_height * 0.33)))
 
 		# Double buffering.
