@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import pygame
 import math
 from PIL import Image, ImageOps
@@ -25,6 +27,7 @@ class Sprite():
 
 class App:
 	def __init__(self, photos):
+		# TODO: A reminder that this is a bad name for index and yeah...
 		self.ii = 0
 
 		# Initiate the pygame module and create the main display.
@@ -136,21 +139,28 @@ def show_photo(photo):
 		print(f"Error: {error}")
 
 if __name__ == "__main__":
-	# For reading HEIC files.
+	# Handler for reading the iPhone HEIC files stored in ./originals.
+	# ./photos used for the game should be JPEG's that don't need this;
+	# in case they are HEIC files they will still be read successfully.
 	register_heif_opener()
 
-	# First, clear existing ./photos folder.
-	photos = Path("./photos").glob("*")
-	for photo in photos:
-		photo.unlink()
+	reset = input("Do you want to clear the existing ./photos and replace with new ./originals? (Y/N) ")
 
-	# Rename all ./originals to be their EXIF date taken 
-	# timestamp, placing into the cleared ./photos.
-	originals = Path("./originals").glob("*")
-	for original in originals:
-		rename_photo_date_taken(original)
+	if reset.strip().upper() == "Y":
+		# To reset, first clear existing ./photos folder.
+		photos = Path("./photos").glob("*")
+		for photo in photos:
+			photo.unlink()
+
+		# Then rename all ./originals to be their EXIF date 
+		# taken timestamp, placing into the cleared ./photos.
+		originals = Path("./originals").glob("*")
+		for original in originals:
+			rename_photo_date_taken(original)
 
 	# So that sorting ./photos by name is sorting photos by date taken.
+	# In other words if user chose not to reset, the game will assume the 
+	# existing ./photos is already sorted alphabetically by date taken.
 	photos = list(Path("./photos").glob("*"))
 	photos.sort()
 
