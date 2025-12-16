@@ -7,7 +7,7 @@ from pathlib import Path
 from pillow_heif import register_heif_opener
 
 class Sprite():
-	def __init__(self, spritesheet, colour_key, screen_centre, crop_rect):
+	def __init__(self, spritesheet, colour_key, screen_centre, crop_rect, starting_angle):
 		# Creating the sprite involves cropping the spritesheet based on crop_rect
 		# and placing that onto a surface of the same size, copying each pixel from 
 		# cropped sheet to the surface pixel-by pixel. 
@@ -25,8 +25,8 @@ class Sprite():
 		# Transformations on the sprite will replace this, not the original.
 		self.sprite = self.sprite_original
 
-		# Rotation about self.screen_centre.
-		self.curr_angle = 0
+		# Counterclockwise rotation about self.screen_centre and the positive x-axis.
+		self.curr_angle = starting_angle
 
 class App:
 	def __init__(self, photos):
@@ -48,7 +48,8 @@ class App:
 			spritesheet=spritesheet, 
 			colour_key= spritesheet_colour_key,
 			screen_centre=(self.screen_width * 0.50, self.screen_height * 0.8), 
-			crop_rect=pygame.Rect(0, 124, 256, 8)
+			crop_rect=pygame.Rect(0, 124, 256, 8),
+			starting_angle=90
 		)
 
 		# Load all photos
@@ -106,6 +107,11 @@ class App:
 		# is actually moving its angular displacement backward in angle.
 		if self.drawing: self.minute_hand.curr_angle -= (self.mouse_prev_angle - mouse_curr_angle)
 
+		# TODO: Remove since this is a fix just for this current proof of concept, where 
+		# self.ii is tied to the value of curr_angle, and is very possible for this to 
+		# overflow underflow +-360 so that self.ii indexes out of bounds of self.photos.
+		self.minute_hand.curr_angle %= 360
+
 		# Update for next frame.
 		self.mouse_prev_angle = mouse_curr_angle
 
@@ -121,11 +127,19 @@ class App:
 		self.screen.blit(self.minute_hand.sprite, self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre))
 
 		# Hack: Blit the pygame image self.photos[i]
-		# TODO: self.ii is dependent on how many turns user has made of the clock hand.
+		# TODO: self.ii should be incremented when user has made three turns 1080 degrees of the clock hand.
+		#
+		# Let's focus on this for now. A reliable curr_angle would make everything more reliable.
+		#
+		# Current version though, is a good mode of control, like a fastforward fastbackward; maybe triggered 
+		# upon shift + mousedown. But it doesn't work properly with current math; need minute_hand.curr_angle 
+		# to be more reliable as an index into self.photos that follows time; solution is not the modulus by 360!!
 		#
 		# Negative one is again because the index into self.photos is how forward
 		# in time the clock is, which is how backward in angle the hand is.
 		self.ii = int((-1) * self.minute_hand.curr_angle / 360 * len(self.photos))
+
+		# print(f"theta: {self.theta:.4f}\tcurr_angle: {self.minute_hand.curr_angle:.4f}\tii: {self.ii}")
 		self.screen.blit(self.photos[self.ii], self.photos[self.ii].get_rect(center=(self.screen_width * 0.50, self.screen_height * 0.33)))
 
 		# Double buffering.
