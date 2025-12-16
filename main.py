@@ -93,7 +93,7 @@ class App:
 		pygame.draw.circle(self.screen, self.colour_main, self.minute_hand.screen_centre, 150, self.line_width)
 		pygame.draw.circle(self.screen, self.colour_main, self.minute_hand.screen_centre, self.line_width, self.line_width)
 
-		# Graphics coordinates have (0,0) at the top-left corner, but 
+		# Graphical coordinates have (0,0) at the top-left corner, but 
 		# Cartesian coordinates have (0,0) at the bottom-left corner, is
 		# how I would explain the times by negative one here.
 		pos = pygame.mouse.get_pos()
@@ -110,6 +110,11 @@ class App:
 		self.mouse_prev_angle = mouse_curr_angle
 
 		# Update the mutable sprite and not the immutable original sprite.
+		#
+		# IMPORTANT: note that the amount of rotation is exactly minute_hand.curr_angle. This is because the original 
+		# sprite is a horizontal line lying on the positive x-axis. In other words, if the original sprite was a vertical 
+		# line facing upward (Cartesian positive y-axis, Graphical negative y-axis) then the sprite should be first rotated 
+		# -90 degrees so that it is lying flat on the postive x-axis, and then rotated by minute_hand.curr_angle.
 		self.minute_hand.sprite = pygame.transform.rotate(self.minute_hand.sprite_original, self.minute_hand.curr_angle).convert_alpha()
 
 		# Blit the updated minute_hand sprite onto screen.
