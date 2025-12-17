@@ -41,15 +41,16 @@ class App:
 
 		# Load the main sprites.
 		self.minute_hand = Sprite(
-			spritesheet=spritesheet, 
+			spritesheet=spritesheet,
 			colour_key= spritesheet_colour_key,
-			screen_centre=(self.screen_width * 0.50, self.screen_height * 0.8), 
+			screen_centre=(self.screen_width * 0.50, self.screen_height * 0.8),
 			crop_rect=pygame.Rect(0, 124, 256, 8),
 			starting_angle=90
 		)
 
 		# Load all photos
-		self.photos = [pygame.image.load(f"{photos[idx].parent}/{photos[idx].name}").convert() for idx in range(0, len(photos))]
+		self.photos = [pygame.image.load(f"{photos[idx].parent}/{photos[idx].name}").convert()
+			for idx in range(0, len(photos))]
 		self.photos_index = 0
 
 		# Other constants needed for the game.
@@ -118,8 +119,11 @@ class App:
 		self.screen.fill(self.colour_bg)
 
 		# Blit the clock onto bottom half of screen; this is the outer border and pivot centre shapes.
-		pygame.draw.circle(self.screen, self.colour_main, self.minute_hand.screen_centre, 150, self.line_width)
-		pygame.draw.circle(self.screen, self.colour_main, self.minute_hand.screen_centre, self.line_width, self.line_width)
+		pygame.draw.circle(
+			self.screen, self.colour_main, self.minute_hand.screen_centre, 150, self.line_width)
+		pygame.draw.circle(
+			self.screen, self.colour_main, self.minute_hand.screen_centre,
+			self.line_width, self.line_width)
 
 		# Calculate the change in mouse angle from last frame to this frame.
 		pos = pygame.mouse.get_pos()
@@ -138,7 +142,7 @@ class App:
 		if self.drawing:
 			# User wants to move clock by mouse.
 			self.minute_hand.screen_angle += mouse_delta_angle
-		else: 
+		else:
 			# User wants to move clock by keyboard.
 			self.minute_hand.screen_angle += self.rewind_velocity * 5
 
@@ -171,12 +175,23 @@ class App:
 		self.time_prev_angle = time_curr_angle
 
 		# Update the mutable sprite and not the immutable original sprite, and blit it to screen.
-		self.minute_hand.sprite = pygame.transform.rotate(self.minute_hand.sprite_original, self.minute_hand.screen_angle).convert_alpha()
-		self.screen.blit(self.minute_hand.sprite, self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre))
+		self.minute_hand.sprite = pygame.transform.rotate(
+			self.minute_hand.sprite_original, self.minute_hand.screen_angle
+		).convert_alpha()
+
+		self.screen.blit(
+			self.minute_hand.sprite,
+			self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre)
+		)
 
 		# Hack: For now just blit the pygame image self.photos[i]. For future instead, new 
 		# photo should display only when >= 1080 degrees have been displaced by minute_hand.
-		self.screen.blit(self.photos[self.photos_index], self.photos[self.photos_index].get_rect(center=(self.screen_width * 0.50, self.screen_height * 0.33)))
+		self.screen.blit(
+			self.photos[self.photos_index],
+			self.photos[self.photos_index].get_rect(
+				center=(self.screen_width * 0.50, self.screen_height * 0.33)
+			)
+		)
 
 		# TODO: Debug print.
 		print(f"photos_index: {self.photos_index}")
@@ -225,7 +240,7 @@ if __name__ == "__main__":
 		for photo in photos:
 			photo.unlink()
 
-		# Then rename all ./originals to be their EXIF date 
+		# Then rename all ./originals to be their EXIF date
 		# taken timestamp, placing into the cleared ./photos.
 		originals = Path("./originals").glob("*")
 		for original in originals:
