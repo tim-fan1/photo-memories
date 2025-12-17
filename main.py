@@ -94,53 +94,41 @@ class App:
 		pygame.draw.circle(self.screen, self.colour_main, self.minute_hand.screen_centre, 150, self.line_width)
 		pygame.draw.circle(self.screen, self.colour_main, self.minute_hand.screen_centre, self.line_width, self.line_width)
 
-		# Graphical coordinates have (0,0) at the top-left corner, but 
-		# Cartesian coordinates have (0,0) at the bottom-left corner, is
-		# how I would explain the times by negative one here.
+		# Calculate the change in mouse angle from last frame to this frame.
 		pos = pygame.mouse.get_pos()
 		x = pos[0] - self.minute_hand.screen_centre[0]
 		y = pos[1] - self.minute_hand.screen_centre[1]
-		mouse_curr_angle = (-1) * math.degrees(math.atan2(y, x))
+		mouse_curr_angle = 0
+		if y < 0:
+			# Upper two quadrants.
+			mouse_curr_angle = abs(math.degrees(math.atan2(y, x)))
+		else:
+			# Lower two quadrants.
+			mouse_curr_angle = 360 - abs(math.degrees(math.atan2(y, x)))
+		mouse_delta_angle = mouse_curr_angle - self.mouse_prev_angle
 
-		# While pygame.transform.rotate moves counterclockwise in angle,
-		# clocks move clockwise in time. So moving the clock forward in time
-		# is actually moving its angular displacement backward in angle.
-		if self.drawing: self.minute_hand.curr_angle -= (self.mouse_prev_angle - mouse_curr_angle)
+		# And update the minute hand's sprite angle accordingly, if the user is drawing
+		# on the screen wanting to move the minute hand forward/backward in time.
+		if self.drawing: self.minute_hand.curr_angle += mouse_delta_angle
 
-		# TODO: Remove since this is a fix just for this current proof of concept, where 
-		# self.ii is tied to the value of curr_angle, and is very possible for this to 
-		# overflow underflow +-360 so that self.ii indexes out of bounds of self.photos.
+		# This keeps the minute hand's current angle consistent with how the mouse's 
+		# current angle is calculated: they both range in (0, 360), always positive.
 		self.minute_hand.curr_angle %= 360
 
-		# Update for next frame.
+		# Update mouse angle for next frame.
 		self.mouse_prev_angle = mouse_curr_angle
 
-		# Update the mutable sprite and not the immutable original sprite.
-		#
-		# IMPORTANT: note that the amount of rotation is exactly minute_hand.curr_angle. This is because the original 
-		# sprite is a horizontal line lying on the positive x-axis. In other words, if the original sprite was a vertical 
-		# line facing upward (Cartesian positive y-axis, Graphical negative y-axis) then the sprite should be first rotated 
-		# -90 degrees so that it is lying flat on the postive x-axis, and then rotated by minute_hand.curr_angle.
+		# Update the mutable sprite and not the immutable original sprite, and blit it to screen.
 		self.minute_hand.sprite = pygame.transform.rotate(self.minute_hand.sprite_original, self.minute_hand.curr_angle).convert_alpha()
-
-		# Blit the updated minute_hand sprite onto screen.
 		self.screen.blit(self.minute_hand.sprite, self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre))
 
-		# Hack: Blit the pygame image self.photos[i]
-		# TODO: self.ii should be incremented when user has made three turns 1080 degrees of the clock hand.
-		#
-		# Let's focus on this for now. A reliable curr_angle would make everything more reliable.
-		#
-		# Current version though, is a good mode of control, like a fastforward fastbackward; maybe triggered 
-		# upon shift + mousedown. But it doesn't work properly with current math; need minute_hand.curr_angle 
-		# to be more reliable as an index into self.photos that follows time; solution is not the modulus by 360!!
-		#
-		# Negative one is again because the index into self.photos is how forward
-		# in time the clock is, which is how backward in angle the hand is.
-		self.ii = int((-1) * self.minute_hand.curr_angle / 360 * len(self.photos))
-
-		# print(f"theta: {self.theta:.4f}\tcurr_angle: {self.minute_hand.curr_angle:.4f}\tii: {self.ii}")
+		# Hack: For now just blit the pygame image self.photos[i]. For future instead, new 
+		# photo should display only when >= 1080 degrees have been displaced by minute_hand.
+		self.ii = (len(self.photos) - int(self.minute_hand.curr_angle / 360 * len(self.photos))) % len(self.photos)
 		self.screen.blit(self.photos[self.ii], self.photos[self.ii].get_rect(center=(self.screen_width * 0.50, self.screen_height * 0.33)))
+
+		# TODO: Debug print.
+		# print(f"self.minute_hand.curr_angle: {self.minute_hand.curr_angle:.4f}\tmouse_curr_angle: {mouse_curr_angle:.4f}\tii: {self.ii}")
 
 		# Double buffering.
 		pygame.display.flip()
