@@ -26,14 +26,10 @@ class Sprite():
 		self.sprite = self.sprite_original
 
 		# Counterclockwise rotation about self.screen_centre and the positive x-axis.
-		self.curr_angle = starting_angle
+		self.screen_angle = starting_angle
 
 class App:
 	def __init__(self, photos):
-		# TODO: A reminder that this is a bad name for index and yeah...
-		self.ii = 0
-		self.mouse_prev_angle = 0
-
 		# Initiate the pygame module and create the main display.
 		pygame.init()
 		self.screen_width, self.screen_height = 640, 1000
@@ -54,16 +50,26 @@ class App:
 
 		# Load all photos
 		self.photos = [pygame.image.load(f"{photos[idx].parent}/{photos[idx].name}").convert() for idx in range(0, len(photos))]
+		self.photos_index = 0
 
-		# Other colours needed for the game.
+		# Other constants needed for the game.
 		self.colour_bg = (150, 150, 150)
 		self.colour_main = (0, 0, 0)
 		self.line_width = 8
 
+		# Related to angular displacement.
+		self.mouse_prev_angle = 0
+		self.time_prev_angle = 0
+		self.accumulated_theta = 0
+
+		# Related to angular velocity.
+		self.rewind_velocity = 0
+		self.speed = [20, 10, 5, 3, 2, 1, 0, -1, -2, -3, -5, -10, -20]
+		self.speed_index = int(len(self.speed) / 2)
+
 		# Let's start running the game!!
 		self.running = True
 		self.drawing = False
-		self.rewind_velocity = 0
 
 		# For maintaining the frame rate of game loop
 		fps = pygame.time.Clock()
@@ -89,22 +95,23 @@ class App:
 		elif event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
 			# User wants to fastforward.
 			if event.mod & pygame.KMOD_LSHIFT:
-				self.rewind_velocity = int(self.rewind_velocity)
-				self.rewind_velocity -= 1
-				if self.rewind_velocity < -5: self.rewind_velocity = -5
+				self.speed_index += 1
+				if self.speed_index > len(self.speed) - 1: self.speed_index = len(self.speed) - 1
+				self.rewind_velocity = self.speed[self.speed_index]
 			else:
-				self.rewind_velocity = -0.1
+				self.rewind_velocity = -0.5
 		elif event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
 			# User wants to fastreverse.
 			if event.mod & pygame.KMOD_LSHIFT:
-				self.rewind_velocity = int(self.rewind_velocity)
-				self.rewind_velocity += 1
-				if self.rewind_velocity > 5: self.rewind_velocity = 5
+				self.speed_index -= 1
+				if self.speed_index < 0: self.speed_index = 0
+				self.rewind_velocity = self.speed[self.speed_index]
 			else:
-				self.rewind_velocity = 0.1
+				self.rewind_velocity = 0.5
 		elif event.type == pygame.KEYUP and not event.mod & pygame.KMOD_LSHIFT:
 			# User wants to stop rewinding.
 			self.rewind_velocity = 0
+			self.speed_index = int(len(self.speed) / 2)
 
 	def loop(self):
 		# Clear the screen
@@ -127,29 +134,52 @@ class App:
 			mouse_curr_angle = 360 - abs(math.degrees(math.atan2(y, x)))
 		mouse_delta_angle = mouse_curr_angle - self.mouse_prev_angle
 
-		# And update the minute hand's sprite angle accordingly, if the user is drawing
-		# on the screen wanting to move the minute hand forward/backward in time.
-		if self.drawing: self.minute_hand.curr_angle += mouse_delta_angle
-		
-		self.minute_hand.curr_angle += self.rewind_velocity * 5
+		# And use that to calculate how far the clock moves.
+		if self.drawing:
+			# User wants to move clock by mouse.
+			self.minute_hand.screen_angle += mouse_delta_angle
+		else: 
+			# User wants to move clock by keyboard.
+			self.minute_hand.screen_angle += self.rewind_velocity * 5
 
-		# To keep all angles in (0,360)
-		self.minute_hand.curr_angle %= 360
-
-		# Update mouse angle for next frame.
+		# Mouse angle done.
+		self.minute_hand.screen_angle %= 360
 		self.mouse_prev_angle = mouse_curr_angle
 
+		# Calculate the change in time angle from last frame to this frame.
+		time_curr_angle = (90 - self.minute_hand.screen_angle)
+		time_curr_angle %= 360
+		time_delta_angle = time_curr_angle - self.time_prev_angle
+
+		# TODO: start transition to next/prev photo at time_curr_angle = 270 and end at time_curr_angle = 90
+
+		# A huge change is an indicator of crossing at 12
+		if time_delta_angle > 180: time_delta_angle -= 360
+		elif time_delta_angle < -180: time_delta_angle += 360
+
+		# But only if is in between the first and second quadrants.
+		if self.time_prev_angle > 270 and time_curr_angle < 90 and time_delta_angle > 0:
+			# It was a clockwise crossing at 12.
+			self.photos_index += 1
+			if self.photos_index > len(self.photos) - 1: self.photos_index = len(self.photos) - 1
+		elif self.time_prev_angle < 90 and time_curr_angle > 270 and time_delta_angle < 0:
+			# It was a counter-clockwise crossing at 12.
+			self.photos_index -= 1
+			if self.photos_index < 0: self.photos_index = 0
+
+		# Time angle done.
+		self.time_prev_angle = time_curr_angle
+
 		# Update the mutable sprite and not the immutable original sprite, and blit it to screen.
-		self.minute_hand.sprite = pygame.transform.rotate(self.minute_hand.sprite_original, self.minute_hand.curr_angle).convert_alpha()
+		self.minute_hand.sprite = pygame.transform.rotate(self.minute_hand.sprite_original, self.minute_hand.screen_angle).convert_alpha()
 		self.screen.blit(self.minute_hand.sprite, self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre))
 
 		# Hack: For now just blit the pygame image self.photos[i]. For future instead, new 
 		# photo should display only when >= 1080 degrees have been displaced by minute_hand.
-		self.ii = (len(self.photos) - int((self.minute_hand.curr_angle - 90) / 360 * len(self.photos))) % len(self.photos)
-		self.screen.blit(self.photos[self.ii], self.photos[self.ii].get_rect(center=(self.screen_width * 0.50, self.screen_height * 0.33)))
+		self.screen.blit(self.photos[self.photos_index], self.photos[self.photos_index].get_rect(center=(self.screen_width * 0.50, self.screen_height * 0.33)))
 
 		# TODO: Debug print.
-		print(f"rewind_velocity: {self.rewind_velocity}\tminute_hand.curr_angle: {self.minute_hand.curr_angle:.4f}\tii: {self.ii}")
+		print(f"photos_index: {self.photos_index}")
 
 		# Double buffering.
 		pygame.display.flip()
@@ -163,10 +193,10 @@ def rename_photo_date_taken(original):
 			img_exif = img.getexif()
 			if img_exif is None or 306 not in img_exif:
 				raise ValueError(f"{original} does not have EXIF timestamp")
+			img = ImageOps.exif_transpose(img)
 			size = (600, 600)
 			ImageOps.pad(img, size, color="#ffffff").save(
 				f"./photos/{img_exif[306]}.jpg", # img_exif[306] is DateTime
-				exif = img_exif, 
 				format = "JPEG"
 			)
 	except Exception as error:
