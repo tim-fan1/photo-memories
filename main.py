@@ -63,6 +63,7 @@ class App:
 		# Let's start running the game!!
 		self.running = True
 		self.drawing = False
+		self.rewind_velocity = 0
 
 		# For maintaining the frame rate of game loop
 		fps = pygame.time.Clock()
@@ -77,14 +78,33 @@ class App:
 
 	def event(self, event):
 		if event.type == pygame.QUIT:
-			# User wants to quit
+			# User wants to quit.
 			self.running = False
 		elif event.type == pygame.MOUSEBUTTONDOWN:
-			# User wants to draw
+			# User wants to draw.
 			self.drawing = True
 		elif event.type == pygame.MOUSEBUTTONUP:
-			# User wants to stop drawing
+			# User wants to stop drawing.
 			self.drawing = False
+		elif event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
+			# User wants to fastforward.
+			if event.mod & pygame.KMOD_LSHIFT:
+				self.rewind_velocity = int(self.rewind_velocity)
+				self.rewind_velocity -= 1
+				if self.rewind_velocity < -5: self.rewind_velocity = -5
+			else:
+				self.rewind_velocity = -0.1
+		elif event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
+			# User wants to fastreverse.
+			if event.mod & pygame.KMOD_LSHIFT:
+				self.rewind_velocity = int(self.rewind_velocity)
+				self.rewind_velocity += 1
+				if self.rewind_velocity > 5: self.rewind_velocity = 5
+			else:
+				self.rewind_velocity = 0.1
+		elif event.type == pygame.KEYUP and not event.mod & pygame.KMOD_LSHIFT:
+			# User wants to stop rewinding.
+			self.rewind_velocity = 0
 
 	def loop(self):
 		# Clear the screen
@@ -110,9 +130,10 @@ class App:
 		# And update the minute hand's sprite angle accordingly, if the user is drawing
 		# on the screen wanting to move the minute hand forward/backward in time.
 		if self.drawing: self.minute_hand.curr_angle += mouse_delta_angle
+		
+		self.minute_hand.curr_angle += self.rewind_velocity * 5
 
-		# This keeps the minute hand's current angle consistent with how the mouse's 
-		# current angle is calculated: they both range in (0, 360), always positive.
+		# To keep all angles in (0,360)
 		self.minute_hand.curr_angle %= 360
 
 		# Update mouse angle for next frame.
@@ -124,11 +145,11 @@ class App:
 
 		# Hack: For now just blit the pygame image self.photos[i]. For future instead, new 
 		# photo should display only when >= 1080 degrees have been displaced by minute_hand.
-		self.ii = (len(self.photos) - int(self.minute_hand.curr_angle / 360 * len(self.photos))) % len(self.photos)
+		self.ii = (len(self.photos) - int((self.minute_hand.curr_angle - 90) / 360 * len(self.photos))) % len(self.photos)
 		self.screen.blit(self.photos[self.ii], self.photos[self.ii].get_rect(center=(self.screen_width * 0.50, self.screen_height * 0.33)))
 
 		# TODO: Debug print.
-		# print(f"self.minute_hand.curr_angle: {self.minute_hand.curr_angle:.4f}\tmouse_curr_angle: {mouse_curr_angle:.4f}\tii: {self.ii}")
+		print(f"rewind_velocity: {self.rewind_velocity}\tminute_hand.curr_angle: {self.minute_hand.curr_angle:.4f}\tii: {self.ii}")
 
 		# Double buffering.
 		pygame.display.flip()
