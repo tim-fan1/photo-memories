@@ -79,7 +79,8 @@ class App:
 		while self.running:
 			for event in pygame.event.get():
 				self.event(event)
-			self.loop()
+			self.update()
+			self.render()
 			fps.tick(60)
 		pygame.quit()
 
@@ -114,20 +115,8 @@ class App:
 			self.rewind_velocity = 0
 			self.speed_index = int(len(self.speed) / 2)
 
-	def loop(self):
-		# Clear the screen
-		self.screen.fill(self.colour_bg)
-
-		# Blit the clock onto bottom half of screen.
-		pygame.draw.circle(
-			self.screen, self.colour_white, self.minute_hand.screen_centre, 150)
-		pygame.draw.circle(
-			self.screen, self.colour_main, self.minute_hand.screen_centre, 150, self.line_width)
-		pygame.draw.circle(
-			self.screen, self.colour_main, self.minute_hand.screen_centre,
-			self.line_width, self.line_width)
-
-		# Calculate the change in mouse angle from last frame to this frame.
+	def update(self):
+		# Get the mouse angle.
 		pos = pygame.mouse.get_pos()
 		x = pos[0] - self.minute_hand.screen_centre[0]
 		y = pos[1] - self.minute_hand.screen_centre[1]
@@ -138,9 +127,11 @@ class App:
 		else:
 			# Lower two quadrants.
 			mouse_curr_angle = 360 - abs(math.degrees(math.atan2(y, x)))
+
+		# And calculate the change in mouse angle from last frame to this frame.
 		mouse_delta_angle = mouse_curr_angle - self.mouse_prev_angle
 
-		# And use that to calculate how far the clock moves.
+		# And use that to calculate how far the minute hand should move.
 		if self.drawing:
 			# User wants to move clock by mouse.
 			self.minute_hand.screen_angle += mouse_delta_angle
@@ -148,42 +139,59 @@ class App:
 			# User wants to move clock by keyboard.
 			self.minute_hand.screen_angle += self.rewind_velocity * 5
 
+		# TODO: How far should the hour hand move?
+
 		# Mouse angle done.
 		self.minute_hand.screen_angle %= 360
 		self.mouse_prev_angle = mouse_curr_angle
 
+		# TODO: start transition to next/prev photo at time_curr_angle = 270 and end at time_curr_angle = 90
+
 		# Calculate the change in time angle from last frame to this frame.
 		time_curr_angle = (90 - self.minute_hand.screen_angle)
 		time_curr_angle %= 360
-		time_delta_angle = time_curr_angle - self.time_prev_angle
 
-		# TODO: start transition to next/prev photo at time_curr_angle = 270 and end at time_curr_angle = 90
-
-		# A huge change is an indicator of crossing at 12
-		if time_delta_angle > 180: time_delta_angle -= 360
-		elif time_delta_angle < -180: time_delta_angle += 360
-
-		# But only if is in between the first and second quadrants.
-		if self.time_prev_angle > 270 and time_curr_angle < 90 and time_delta_angle > 0:
-			# It was a clockwise crossing at 12.
+		# And use that to detect whether have crossed 12.
+		if self.time_prev_angle > 270 and time_curr_angle < 90:
+			# Was in second and now in first quadrant.
 			self.photos_index += 1
 			if self.photos_index > len(self.photos) - 1: self.photos_index = len(self.photos) - 1
-		elif self.time_prev_angle < 90 and time_curr_angle > 270 and time_delta_angle < 0:
-			# It was a counter-clockwise crossing at 12.
+		elif self.time_prev_angle < 90 and time_curr_angle > 270:
+			# Was in first and not in second quadrant.
 			self.photos_index -= 1
 			if self.photos_index < 0: self.photos_index = 0
 
 		# Time angle done.
 		self.time_prev_angle = time_curr_angle
 
-		# Update the mutable sprite and not the immutable original sprite, and blit it to screen.
+	def render(self):
+		# Clear the screen
+		self.screen.fill(self.colour_bg)
+
+		# Blit the clock body.
+		pygame.draw.circle(
+			self.screen, self.colour_white, self.minute_hand.screen_centre, 150)
+		pygame.draw.circle(
+			self.screen, self.colour_main, self.minute_hand.screen_centre, 150, self.line_width)
+		pygame.draw.circle(
+			self.screen, self.colour_main, self.minute_hand.screen_centre,
+			self.line_width, self.line_width)
+
+		# Blit the minute hand to screen.
 		self.minute_hand.sprite = pygame.transform.rotate(
 			self.minute_hand.sprite_original, self.minute_hand.screen_angle).convert_alpha()
 		self.screen.blit(
 			self.minute_hand.sprite,
 			self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre))
 
-		# And blit the current photo to screen.
+		# TODO: Blit the hour hand to screen.
+		# self.hour_hand.sprite = pygame.transform.rotate(
+		# 	self.hour_hand.sprite_original, self.hour_hand.screen_angle).convert_alpha()
+		# self.screen.blit(
+		# 	self.hour_hand.sprite,
+		# 	self.hour_hand.sprite.get_rect(center=self.hour_hand.screen_centre))
+
+		# Blit the photo to screen.
 		photo_rect = self.photos[self.photos_index].get_rect(center=(self.screen_width * 0.50, self.screen_height * 0.33))
 		border_rect = pygame.Rect(photo_rect.left - self.line_width, photo_rect.top - self.line_width, 
 			photo_rect.width + (2 * self.line_width), photo_rect.height + (2 * self.line_width))
@@ -192,6 +200,7 @@ class App:
 
 		# Double buffering.
 		pygame.display.flip()
+
 
 def rename_photo_date_taken(original):
 	try:
