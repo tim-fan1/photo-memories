@@ -32,7 +32,7 @@ class App:
 	def __init__(self, photos_paths, photos_index_start):
 		# Initiate the pygame module and create the main display.
 		pygame.init()
-		self.screen_width, self.screen_height = 640, 1000
+		self.screen_width, self.screen_height = 1000, 1000
 		self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
 
 		# Load the main spritesheet, which has an opaque background of white.
@@ -43,7 +43,7 @@ class App:
 		self.minute_hand = Sprite(
 			spritesheet=spritesheet,
 			colour_key= spritesheet_colour_key,
-			screen_centre=(self.screen_width * 0.50, self.screen_height * 0.8),
+			screen_centre=(self.screen_width * 0.50, self.screen_height * 0.82),
 			crop_rect=pygame.Rect(0, 124, 256, 8),
 			starting_angle=60
 		)
@@ -54,14 +54,14 @@ class App:
 		self.photos_index = photos_index_start
 
 		# Other constants needed for the game.
-		self.colour_bg = (150, 150, 150)
+		self.colour_bg = (252, 239, 226)
 		self.colour_main = (0, 0, 0)
-		self.line_width = 8
+		self.colour_white = (255, 255, 255)
+		self.line_width = 6
 
 		# Related to angular displacement.
 		self.mouse_prev_angle = 0
 		self.time_prev_angle = 0
-		self.accumulated_theta = 0
 
 		# Related to angular velocity.
 		self.rewind_velocity = 0
@@ -118,7 +118,9 @@ class App:
 		# Clear the screen
 		self.screen.fill(self.colour_bg)
 
-		# Blit the clock onto bottom half of screen; this is the outer border and pivot centre shapes.
+		# Blit the clock onto bottom half of screen.
+		pygame.draw.circle(
+			self.screen, self.colour_white, self.minute_hand.screen_centre, 150)
 		pygame.draw.circle(
 			self.screen, self.colour_main, self.minute_hand.screen_centre, 150, self.line_width)
 		pygame.draw.circle(
@@ -182,10 +184,11 @@ class App:
 			self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre))
 
 		# And blit the current photo to screen.
-		self.screen.blit(
-			self.photos[self.photos_index],
-			self.photos[self.photos_index].get_rect(
-				center=(self.screen_width * 0.50, self.screen_height * 0.33)))
+		photo_rect = self.photos[self.photos_index].get_rect(center=(self.screen_width * 0.50, self.screen_height * 0.33))
+		border_rect = pygame.Rect(photo_rect.left - self.line_width, photo_rect.top - self.line_width, 
+			photo_rect.width + (2 * self.line_width), photo_rect.height + (2 * self.line_width))
+		self.screen.blit(self.photos[self.photos_index], photo_rect)
+		pygame.draw.rect(self.screen, color=self.colour_main, rect=border_rect, width=self.line_width)
 
 		# Double buffering.
 		pygame.display.flip()
