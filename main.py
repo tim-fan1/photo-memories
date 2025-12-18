@@ -176,21 +176,16 @@ class App:
 
 		# Update the mutable sprite and not the immutable original sprite, and blit it to screen.
 		self.minute_hand.sprite = pygame.transform.rotate(
-			self.minute_hand.sprite_original, self.minute_hand.screen_angle
-		).convert_alpha()
-
+			self.minute_hand.sprite_original, self.minute_hand.screen_angle).convert_alpha()
 		self.screen.blit(
 			self.minute_hand.sprite,
-			self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre)
-		)
+			self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre))
 
 		# And blit the current photo to screen.
 		self.screen.blit(
 			self.photos[self.photos_index],
 			self.photos[self.photos_index].get_rect(
-				center=(self.screen_width * 0.50, self.screen_height * 0.33)
-			)
-		)
+				center=(self.screen_width * 0.50, self.screen_height * 0.33)))
 
 		# Double buffering.
 		pygame.display.flip()
