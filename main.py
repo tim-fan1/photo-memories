@@ -54,9 +54,11 @@ class App:
 			starting_angle=0)
 
 		# Load all photos
+		print("Loading photos into memory...")
 		self.photos = [pygame.image.load(f"{photos_paths[idx].parent}/{photos_paths[idx].name}").convert()
 			for idx in range(0, len(photos_paths))]
 		self.photos_index = photos_index_start
+		print("Success!!")
 
 		# Other constants needed for the game.
 		self.colour_bg = (252, 239, 226)
@@ -65,7 +67,6 @@ class App:
 		self.line_width = 6
 
 		# Related to angular displacement.
-		self.mouse_prev_angle = 0
 		self.time_prev_angle = 0
 
 		# Related to angular velocity.
@@ -94,68 +95,32 @@ class App:
 		if event.type == pygame.QUIT:
 			# User wants to quit.
 			self.running = False
-		elif event.type == pygame.MOUSEBUTTONDOWN:
-			# User wants to draw.
-			pass
-			# self.drawing = True
 		elif event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_RIGHT:
 				# Forward.
 				self.rewind_velocity = -1.25
-				self.keyboard = True
 			elif event.key == pygame.K_LEFT:
 				# Reverse.
 				self.rewind_velocity = 1.25
-				self.keyboard = True
-		elif event.type == pygame.KEYUP or event.type == pygame.MOUSEBUTTONUP:
+		elif event.type == pygame.KEYUP:
 			# Stop moving the clock.
-			self.drawing = False
-			self.keyboard = False
 			self.accumulated_revolutions = 0
 			self.rewind_velocity = 0
 
 	def update(self):
-		# Get the mouse angle.
-		pos = pygame.mouse.get_pos()
-		x = pos[0] - self.minute_hand.screen_centre[0]
-		y = pos[1] - self.minute_hand.screen_centre[1]
-		mouse_curr_angle = 0
-		if y < 0:
-			# Upper two quadrants.
-			mouse_curr_angle = abs(math.degrees(math.atan2(y, x)))
-		else:
-			# Lower two quadrants.
-			mouse_curr_angle = 360 - abs(math.degrees(math.atan2(y, x)))
+		# The longer the key is held down, the faster the clock hand should go.
+		sign = 1 if self.accumulated_revolutions > 0 else -1
+		if self.accumulated_revolutions != 0:
+			self.rewind_velocity = (-1) * sign * (1.25 + 0.05 * math.pow(abs(self.accumulated_revolutions) + 1, 1.4))
 
-		# And calculate the change in mouse angle from last frame to this frame.
-		mouse_delta_angle = mouse_curr_angle - self.mouse_prev_angle
+		# Too fast!
+		if abs(self.rewind_velocity) > self.max_rewind_speed:
+			self.rewind_velocity = (-1) * sign * self.max_rewind_speed
 
-		# And use that to calculate how far the minute hand should move.
-		minute_hand_prev_angle = self.minute_hand.screen_angle
-		delta = 0
-		if self.drawing:
-			# User wants to move clock by mouse.
-			delta = mouse_delta_angle
-			self.minute_hand.screen_angle += delta
-			self.hour_hand.screen_angle += delta / 12
-		elif self.keyboard:
-			# The longer the key is held down, the faster the clock hand should go.
-			sign = 1 if self.accumulated_revolutions > 0 else -1
-			if self.accumulated_revolutions != 0:
-				self.rewind_velocity = (-1) * sign * (1.25 + 0.05 * math.pow(abs(self.accumulated_revolutions) + 1, 1.4))
-
-			# Too fast!
-			if abs(self.rewind_velocity) > self.max_rewind_speed:
-				self.rewind_velocity = (-1) * sign * self.max_rewind_speed
-
-			# Move hand one step.
-			delta = self.rewind_velocity * 5
-			self.minute_hand.screen_angle += delta
-
-			self.hour_hand.screen_angle += delta / 12
-
-		# Update.
-		self.mouse_prev_angle = mouse_curr_angle
+		# Move hand one step.
+		delta = self.rewind_velocity * 5
+		self.minute_hand.screen_angle += delta
+		self.hour_hand.screen_angle += delta / 12
 
 		# How far should the hour hand move? Time angle is (0,360) degrees == (0,60) minutes.
 		time_curr_angle = (90 - self.minute_hand.screen_angle)
