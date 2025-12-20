@@ -42,11 +42,16 @@ class App:
 		# Load the main sprites.
 		self.minute_hand = Sprite(
 			spritesheet=spritesheet,
-			colour_key= spritesheet_colour_key,
+			colour_key=spritesheet_colour_key,
 			screen_centre=(self.screen_width * 0.50, self.screen_height * 0.82),
 			crop_rect=pygame.Rect(0, 124, 256, 8),
-			starting_angle=60
-		)
+			starting_angle=90)
+		self.hour_hand = Sprite(
+			spritesheet=spritesheet,
+			colour_key=spritesheet_colour_key,
+			screen_centre=(self.screen_width * 0.50, self.screen_height * 0.82),
+			crop_rect=pygame.Rect(28, 124, 200, 8),
+			starting_angle=0)
 
 		# Load all photos
 		self.photos = [pygame.image.load(f"{photos_paths[idx].parent}/{photos_paths[idx].name}").convert()
@@ -91,7 +96,8 @@ class App:
 			self.running = False
 		elif event.type == pygame.MOUSEBUTTONDOWN:
 			# User wants to draw.
-			self.drawing = True
+			pass
+			# self.drawing = True
 		elif event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_RIGHT:
 				# Forward.
@@ -125,9 +131,13 @@ class App:
 		mouse_delta_angle = mouse_curr_angle - self.mouse_prev_angle
 
 		# And use that to calculate how far the minute hand should move.
+		minute_hand_prev_angle = self.minute_hand.screen_angle
+		delta = 0
 		if self.drawing:
 			# User wants to move clock by mouse.
-			self.minute_hand.screen_angle += mouse_delta_angle
+			delta = mouse_delta_angle
+			self.minute_hand.screen_angle += delta
+			self.hour_hand.screen_angle += delta / 12
 		elif self.keyboard:
 			# The longer the key is held down, the faster the clock hand should go.
 			sign = 1 if self.accumulated_revolutions > 0 else -1
@@ -139,19 +149,22 @@ class App:
 				self.rewind_velocity = (-1) * sign * self.max_rewind_speed
 
 			# Move hand one step.
-			self.minute_hand.screen_angle += self.rewind_velocity * 5
+			delta = self.rewind_velocity * 5
+			self.minute_hand.screen_angle += delta
 
-		# TODO: How far should the hour hand move?
+			self.hour_hand.screen_angle += delta / 12
 
-		# Mouse angle done.
-		self.minute_hand.screen_angle %= 360
+		# Update.
 		self.mouse_prev_angle = mouse_curr_angle
 
-		# TODO: start transition to next/prev photo at time_curr_angle = 270 and end at time_curr_angle = 90
-
-		# Calculate the change in time angle from last frame to this frame.
+		# How far should the hour hand move? Time angle is (0,360) degrees == (0,60) minutes.
 		time_curr_angle = (90 - self.minute_hand.screen_angle)
 		time_curr_angle %= 360
+
+		self.minute_hand.screen_angle %= 360
+		self.hour_hand.screen_angle %= 360
+
+		# TODO: start transition to next/prev photo at time_curr_angle = 270 and end at time_curr_angle = 90
 
 		# And use that to detect whether have crossed 12.
 		if self.time_prev_angle > 270 and time_curr_angle < 90:
@@ -179,7 +192,7 @@ class App:
 			self.screen, self.colour_main, self.minute_hand.screen_centre, 150, self.line_width)
 		pygame.draw.circle(
 			self.screen, self.colour_main, self.minute_hand.screen_centre,
-			self.line_width, self.line_width)
+			1.41 * self.line_width)
 
 		# Blit the minute hand to screen.
 		self.minute_hand.sprite = pygame.transform.rotate(
@@ -189,11 +202,11 @@ class App:
 			self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre))
 
 		# TODO: Blit the hour hand to screen.
-		# self.hour_hand.sprite = pygame.transform.rotate(
-		# 	self.hour_hand.sprite_original, self.hour_hand.screen_angle).convert_alpha()
-		# self.screen.blit(
-		# 	self.hour_hand.sprite,
-		# 	self.hour_hand.sprite.get_rect(center=self.hour_hand.screen_centre))
+		self.hour_hand.sprite = pygame.transform.rotate(
+			self.hour_hand.sprite_original, self.hour_hand.screen_angle).convert_alpha()
+		self.screen.blit(
+			self.hour_hand.sprite,
+			self.hour_hand.sprite.get_rect(center=self.hour_hand.screen_centre))
 
 		# Blit the photo to screen.
 		photo_rect = self.photos[self.photos_index].get_rect(center=(self.screen_width * 0.50, self.screen_height * 0.33))
