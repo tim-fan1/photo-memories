@@ -65,12 +65,13 @@ class App:
 
 		# Related to angular velocity.
 		self.rewind_velocity = 0
-		self.speed = [20, 10, 5, 3, 2, 0, -2, -3, -5, -10, -20]
-		self.speed_index = int(len(self.speed) / 2)
+		self.accumulated_revolutions = 0
+		self.max_rewind_speed = 10
 
 		# Let's start running the game!!
 		self.running = True
 		self.drawing = False
+		self.keyboard = False
 
 		# For maintaining the frame rate of game loop
 		fps = pygame.time.Clock()
@@ -91,29 +92,21 @@ class App:
 		elif event.type == pygame.MOUSEBUTTONDOWN:
 			# User wants to draw.
 			self.drawing = True
-		elif event.type == pygame.MOUSEBUTTONUP:
-			# User wants to stop drawing.
-			self.drawing = False
-		elif event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
-			# User wants to fastforward.
-			if event.mod & pygame.KMOD_LSHIFT:
-				self.speed_index += 1
-				if self.speed_index > len(self.speed) - 1: self.speed_index = len(self.speed) - 1
-				self.rewind_velocity = self.speed[self.speed_index]
-			else:
+		elif event.type == pygame.KEYDOWN:
+			if event.key == pygame.K_RIGHT:
+				# Forward.
 				self.rewind_velocity = -1.25
-		elif event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
-			# User wants to fastreverse.
-			if event.mod & pygame.KMOD_LSHIFT:
-				self.speed_index -= 1
-				if self.speed_index < 0: self.speed_index = 0
-				self.rewind_velocity = self.speed[self.speed_index]
-			else:
+				self.keyboard = True
+			elif event.key == pygame.K_LEFT:
+				# Reverse.
 				self.rewind_velocity = 1.25
-		elif event.type == pygame.KEYUP and not event.mod & pygame.KMOD_LSHIFT:
-			# User wants to stop rewinding.
+				self.keyboard = True
+		elif event.type == pygame.KEYUP or event.type == pygame.MOUSEBUTTONUP:
+			# Stop moving the clock.
+			self.drawing = False
+			self.keyboard = False
+			self.accumulated_revolutions = 0
 			self.rewind_velocity = 0
-			self.speed_index = int(len(self.speed) / 2)
 
 	def update(self):
 		# Get the mouse angle.
@@ -135,8 +128,17 @@ class App:
 		if self.drawing:
 			# User wants to move clock by mouse.
 			self.minute_hand.screen_angle += mouse_delta_angle
-		else:
-			# User wants to move clock by keyboard.
+		elif self.keyboard:
+			# The longer the key is held down, the faster the clock hand should go.
+			sign = 1 if self.accumulated_revolutions > 0 else -1
+			if self.accumulated_revolutions != 0:
+				self.rewind_velocity = (-1) * sign * (1.25 + 0.05 * math.pow(abs(self.accumulated_revolutions) + 1, 1.4))
+
+			# Too fast!
+			if abs(self.rewind_velocity) > self.max_rewind_speed:
+				self.rewind_velocity = (-1) * sign * self.max_rewind_speed
+
+			# Move hand one step.
 			self.minute_hand.screen_angle += self.rewind_velocity * 5
 
 		# TODO: How far should the hour hand move?
@@ -156,10 +158,12 @@ class App:
 			# Was in second and now in first quadrant.
 			self.photos_index += 1
 			if self.photos_index > len(self.photos) - 1: self.photos_index = len(self.photos) - 1
+			self.accumulated_revolutions += 1
 		elif self.time_prev_angle < 90 and time_curr_angle > 270:
-			# Was in first and not in second quadrant.
+			# Was in first and now in second quadrant.
 			self.photos_index -= 1
 			if self.photos_index < 0: self.photos_index = 0
+			self.accumulated_revolutions -= 1
 
 		# Time angle done.
 		self.time_prev_angle = time_curr_angle
