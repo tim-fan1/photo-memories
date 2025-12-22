@@ -29,7 +29,7 @@ class Sprite():
 		self.screen_angle = starting_angle
 
 class App:
-	def __init__(self, photos_paths, photos_index_start):
+	def __init__(self, photos_paths, photos_start_index):
 		# Initiate the pygame module and create the main display.
 		pygame.init()
 		self.screen_width, self.screen_height = 1000, 1000
@@ -57,7 +57,7 @@ class App:
 		print("Loading photos into memory...")
 		self.photos = [pygame.image.load(f"{photos_paths[idx].parent}/{photos_paths[idx].name}").convert()
 			for idx in range(0, len(photos_paths))]
-		self.photos_index = photos_index_start
+		self.photos_index = photos_start_index
 		print("Success!!")
 
 		# Other constants needed for the game.
@@ -73,6 +73,7 @@ class App:
 		self.rewind_velocity = 0
 		self.accumulated_revolutions = 0
 		self.max_rewind_speed = 5
+		self.rewind_constant = 0.05
 
 		# Let's start running the game!!
 		self.running = True
@@ -97,9 +98,10 @@ class App:
 			self.running = False
 		
 		if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
-			# Shift increases max speed.
+			# Shift increases acceleration.
 			self.max_rewind_speed = 20 if event.mod & pygame.KMOD_SHIFT else 5
-			
+			self.rewind_constant = 0.25 if event.mod & pygame.KMOD_SHIFT else 0.05
+
 		if event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_RIGHT:
 				# Forward.
@@ -112,12 +114,13 @@ class App:
 				# Stop moving the clock.
 				self.accumulated_revolutions = 0
 				self.rewind_velocity = 0
+				self.rewind_constant = 0.05
 
 	def update(self):
 		# The longer the key is held down, the faster the clock hand should go.
 		sign = 1 if self.accumulated_revolutions > 0 else -1
 		if self.accumulated_revolutions != 0:
-			self.rewind_velocity = (-1) * sign * (1.25 + 0.25 * math.pow(abs(self.accumulated_revolutions) + 1, 1.4))
+			self.rewind_velocity = (-1) * sign * (1.25 + self.rewind_constant * math.pow(abs(self.accumulated_revolutions) + 1, 1.4))
 
 		# Too fast!
 		if abs(self.rewind_velocity) > self.max_rewind_speed:
@@ -234,6 +237,21 @@ def rename_photo_date_taken(original):
 		print(f"Error: {error}")
 		original.unlink()
 
+def get_start_year(first_year, last_year):
+	while True:
+		start_year = input("Start from which year? ")
+		try:
+			start_year = int(start_year)
+			if start_year < first_year:
+				print("That's before us")
+				raise ValueError()
+			elif start_year > last_year:
+				print("That's to come")
+				raise ValueError()
+			return start_year
+		except ValueError as error:
+			pass
+
 if __name__ == "__main__":
 	# Handler for reading the iPhone HEIC files stored in ./originals.
 	# ./photos used for the game should be JPEG's that don't need this;
@@ -261,5 +279,16 @@ if __name__ == "__main__":
 	photos = list(Path("./photos").glob("*"))
 	photos.sort()
 
+	first_year = int(photos[0].name[0:4])
+	last_year = int(photos[-1].name[0:4])
+
+	start_year = get_start_year(first_year, last_year)
+
+	start_index = 0
+	for index, photo in enumerate(photos):
+		if int(photo.name[0:4]) >= start_year:
+			start_index = index
+			break
+
 	# Run game with this set of photos, starting from first photo.
-	App(photos_paths=photos, photos_index_start=0)
+	App(photos_paths=photos, photos_start_index=start_index)
