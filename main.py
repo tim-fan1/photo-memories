@@ -121,7 +121,7 @@ class App:
 		if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
 			# Shift increases acceleration.
 			self.max_rewind_speed = 20 if event.mod & pygame.KMOD_SHIFT else 5
-			self.rewind_constant = 0.25 if event.mod & pygame.KMOD_SHIFT else 0.15
+			self.rewind_constant = 0.5 if event.mod & pygame.KMOD_SHIFT else 0.15
 
 		if event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_RIGHT:
