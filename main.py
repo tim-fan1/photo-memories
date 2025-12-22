@@ -74,7 +74,7 @@ class App:
 		self.rewind_velocity = 0
 		self.accumulated_revolutions = 0
 		self.max_rewind_speed = 5
-		self.rewind_constant = 0.05
+		self.rewind_constant = 0.15
 
 		# Let's start running the game!!
 		self.running = True
@@ -97,7 +97,9 @@ class App:
 		curr_date = self.paths[self.photos_index].name.split(" ")[0].split(":")
 		for index, path in enumerate(self.paths):
 			next_date = path.name.split(" ")[0].split(":")
-			if int(next_date[0]) > int(curr_date[0]):
+			if (int(next_date[0]) > int(curr_date[0]) and
+			    int(next_date[1]) >= int(curr_date[1]) and
+			    int(next_date[2]) >= int(curr_date[2])):
 				return index
 		return len(self.paths) - 1
 
@@ -105,7 +107,9 @@ class App:
 		curr_date = self.paths[self.photos_index].name.split(" ")[0].split(":")
 		for index, path in enumerate(reversed(self.paths)):
 			prev_date = path.name.split(" ")[0].split(":")
-			if int(prev_date[0]) < int(curr_date[0]):
+			if (int(prev_date[0]) < int(curr_date[0]) and
+			    int(prev_date[1]) <= int(curr_date[1]) and
+			    int(prev_date[2]) <= int(curr_date[2])):
 				return (len(self.paths) - 1) - index
 		return 0
 
@@ -117,7 +121,7 @@ class App:
 		if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
 			# Shift increases acceleration.
 			self.max_rewind_speed = 20 if event.mod & pygame.KMOD_SHIFT else 5
-			self.rewind_constant = 0.25 if event.mod & pygame.KMOD_SHIFT else 0.05
+			self.rewind_constant = 0.25 if event.mod & pygame.KMOD_SHIFT else 0.15
 
 		if event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_RIGHT:
@@ -145,7 +149,7 @@ class App:
 		# The longer the key is held down, the faster the clock hand should go.
 		sign = 1 if self.accumulated_revolutions > 0 else -1
 		if self.accumulated_revolutions != 0:
-			self.rewind_velocity = (-1) * sign * (1.25 + self.rewind_constant * math.pow(abs(self.accumulated_revolutions) + 1, 1.4))
+			self.rewind_velocity = (-1) * sign * (1.25 + self.rewind_constant * math.pow(abs(self.accumulated_revolutions) + 1, 1.1))
 
 		# Too fast!
 		if abs(self.rewind_velocity) > self.max_rewind_speed:
@@ -264,21 +268,6 @@ def rename_photo_date_taken(original):
 		print(f"Error: {error}")
 		original.unlink()
 
-def get_start_year(first_year, last_year):
-	while True:
-		start_year = input("Start from which year? ")
-		try:
-			start_year = int(start_year)
-			if start_year < first_year:
-				print("That's before us")
-				raise ValueError()
-			elif start_year > last_year:
-				print("That's to come")
-				raise ValueError()
-			return start_year
-		except ValueError as error:
-			pass
-
 if __name__ == "__main__":
 	# Handler for reading the iPhone HEIC files stored in ./originals.
 	# ./photos used for the game should be JPEG's that don't need this;
@@ -306,16 +295,5 @@ if __name__ == "__main__":
 	photos = list(Path("./photos").glob("*"))
 	photos.sort()
 
-	first_year = int(photos[0].name[0:4])
-	last_year = int(photos[-1].name[0:4])
-
-	start_year = get_start_year(first_year, last_year)
-
-	start_index = 0
-	for index, photo in enumerate(photos):
-		if int(photo.name[0:4]) >= start_year:
-			start_index = index
-			break
-
 	# Run game with this set of photos, starting from first photo.
-	App(photos_paths=photos, photos_start_index=start_index)
+	App(photos_paths=photos, photos_start_index=0)
