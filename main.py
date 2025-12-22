@@ -55,6 +55,7 @@ class App:
 
 		# Load all photos
 		print("Loading photos into memory...")
+		self.paths = photos_paths
 		self.photos = [pygame.image.load(f"{photos_paths[idx].parent}/{photos_paths[idx].name}").convert()
 			for idx in range(0, len(photos_paths))]
 		self.photos_index = photos_start_index
@@ -92,6 +93,22 @@ class App:
 			fps.tick(60)
 		pygame.quit()
 
+	def get_index_next_year(self):
+		curr_date = self.paths[self.photos_index].name.split(" ")[0].split(":")
+		for index, path in enumerate(self.paths):
+			next_date = path.name.split(" ")[0].split(":")
+			if int(next_date[0]) > int(curr_date[0]):
+				return index
+		return len(self.paths) - 1
+
+	def get_index_prev_year(self):
+		curr_date = self.paths[self.photos_index].name.split(" ")[0].split(":")
+		for index, path in enumerate(reversed(self.paths)):
+			prev_date = path.name.split(" ")[0].split(":")
+			if int(prev_date[0]) < int(curr_date[0]):
+				return (len(self.paths) - 1) - index
+		return 0
+
 	def event(self, event):
 		if event.type == pygame.QUIT:
 			# User wants to quit.
@@ -105,10 +122,18 @@ class App:
 		if event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_RIGHT:
 				# Forward.
-				self.rewind_velocity = -1.25
-			elif event.key == pygame.K_LEFT:
-				# Reverse.
-				self.rewind_velocity = 1.25
+				if not event.mod & pygame.KMOD_META:
+					self.rewind_velocity = -1.25
+				else:
+					# Jump a year.
+					self.photos_index = self.get_index_next_year()
+			if event.key == pygame.K_LEFT:
+				# Backward
+				if not event.mod & pygame.KMOD_META:
+					self.rewind_velocity = 1.25
+				else:
+					# Jump a year.
+					self.photos_index = self.get_index_prev_year()
 		elif event.type == pygame.KEYUP:
 			if event.key == pygame.K_RIGHT or event.key == pygame.K_LEFT:
 				# Stop moving the clock.
@@ -142,18 +167,20 @@ class App:
 		if self.time_prev_angle > 270 and time_curr_angle < 90:
 			# Was in second and now in first quadrant.
 			self.photos_index += 1
-			if self.photos_index > len(self.photos) - 1: self.photos_index = len(self.photos) - 1
 			self.accumulated_revolutions += 1
 		elif self.time_prev_angle < 90 and time_curr_angle > 270:
 			# Was in first and now in second quadrant.
 			self.photos_index -= 1
-			if self.photos_index < 0: self.photos_index = 0
 			self.accumulated_revolutions -= 1
 
 		# Time angle done.
 		self.time_prev_angle = time_curr_angle
 
 	def render(self):
+		# Update has messed with photos index. Let's make sure it's ok before rendering.
+		if self.photos_index > len(self.photos) - 1: self.photos_index = len(self.photos) - 1
+		if self.photos_index < 0: self.photos_index = 0
+
 		# Clear the screen
 		self.screen.fill(self.colour_bg)
 
