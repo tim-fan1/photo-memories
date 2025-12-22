@@ -72,7 +72,7 @@ class App:
 		# Related to angular velocity.
 		self.rewind_velocity = 0
 		self.accumulated_revolutions = 0
-		self.max_rewind_speed = 10
+		self.max_rewind_speed = 5
 
 		# Let's start running the game!!
 		self.running = True
@@ -95,7 +95,12 @@ class App:
 		if event.type == pygame.QUIT:
 			# User wants to quit.
 			self.running = False
-		elif event.type == pygame.KEYDOWN:
+		
+		if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
+			# Shift increases max speed.
+			self.max_rewind_speed = 20 if event.mod & pygame.KMOD_SHIFT else 5
+			
+		if event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_RIGHT:
 				# Forward.
 				self.rewind_velocity = -1.25
@@ -103,15 +108,16 @@ class App:
 				# Reverse.
 				self.rewind_velocity = 1.25
 		elif event.type == pygame.KEYUP:
-			# Stop moving the clock.
-			self.accumulated_revolutions = 0
-			self.rewind_velocity = 0
+			if event.key == pygame.K_RIGHT or event.key == pygame.K_LEFT:
+				# Stop moving the clock.
+				self.accumulated_revolutions = 0
+				self.rewind_velocity = 0
 
 	def update(self):
 		# The longer the key is held down, the faster the clock hand should go.
 		sign = 1 if self.accumulated_revolutions > 0 else -1
 		if self.accumulated_revolutions != 0:
-			self.rewind_velocity = (-1) * sign * (1.25 + 0.05 * math.pow(abs(self.accumulated_revolutions) + 1, 1.4))
+			self.rewind_velocity = (-1) * sign * (1.25 + 0.25 * math.pow(abs(self.accumulated_revolutions) + 1, 1.4))
 
 		# Too fast!
 		if abs(self.rewind_velocity) > self.max_rewind_speed:
@@ -122,16 +128,14 @@ class App:
 		self.minute_hand.screen_angle += delta
 		self.hour_hand.screen_angle += delta / 12
 
-		# How far should the hour hand move? Time angle is (0,360) degrees == (0,60) minutes.
-		time_curr_angle = (90 - self.minute_hand.screen_angle)
-		time_curr_angle %= 360
-
 		self.minute_hand.screen_angle %= 360
 		self.hour_hand.screen_angle %= 360
 
-		# TODO: start transition to next/prev photo at time_curr_angle = 270 and end at time_curr_angle = 90
+		# Time angle is (0,360) degrees == (0,60) minutes.
+		time_curr_angle = (90 - self.minute_hand.screen_angle)
+		time_curr_angle %= 360
 
-		# And use that to detect whether have crossed 12.
+		# And it is used to detect whether have crossed 12.
 		if self.time_prev_angle > 270 and time_curr_angle < 90:
 			# Was in second and now in first quadrant.
 			self.photos_index += 1
@@ -166,7 +170,7 @@ class App:
 			self.minute_hand.sprite,
 			self.minute_hand.sprite.get_rect(center=self.minute_hand.screen_centre))
 
-		# TODO: Blit the hour hand to screen.
+		# Blit the hour hand to screen.
 		self.hour_hand.sprite = pygame.transform.rotate(
 			self.hour_hand.sprite_original, self.hour_hand.screen_angle).convert_alpha()
 		self.screen.blit(
@@ -230,13 +234,6 @@ def rename_photo_date_taken(original):
 		print(f"Error: {error}")
 		original.unlink()
 
-def show_photo(photo):
-	try:
-		with Image.open(photo) as img:
-			img.show()
-	except Exception as error:
-		print(f"Error: {error}")
-
 if __name__ == "__main__":
 	# Handler for reading the iPhone HEIC files stored in ./originals.
 	# ./photos used for the game should be JPEG's that don't need this;
@@ -263,10 +260,6 @@ if __name__ == "__main__":
 	# existing ./photos is already sorted alphabetically by date taken.
 	photos = list(Path("./photos").glob("*"))
 	photos.sort()
-
-	# # This is proof!
-	# for photo in photos:
-	# 	show_photo(photo)
 
 	# Run game with this set of photos, starting from first photo.
 	App(photos_paths=photos, photos_index_start=0)
